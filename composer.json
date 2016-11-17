@@ -1,0 +1,25 @@
+{
+    "name": "iripvanwinkle/codeception-migration",
+    "description": "The migration extension for Codeception with Yii2.",
+    "type": "extension",
+    "keywords": [
+        "yii2",
+        "codeception",
+        "extension"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "iRipVanWinkle",
+            "email": "iripvanwinkle@gmail.com"
+        }
+    ],
+    "require": {
+        "codeception/codeception": "~2.2.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Codeception\\Extension": "src/"
+        }
+    }
+}
