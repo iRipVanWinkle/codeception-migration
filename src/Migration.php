@@ -6,6 +6,17 @@ use Codeception\Lib\Connector\Yii2 as Yii2Connector;
 use yii\base\InvalidConfigException;
 use yii\console\controllers\MigrateController;
 
+class block_stdout_filter extends \php_user_filter {
+    function filter($in, $out, &$consumed, $closing)
+    {
+        while ($bucket = stream_bucket_make_writeable($in)) {
+            $bucket->data = '';
+            stream_bucket_append($out, $bucket);
+        }
+        return PSFS_PASS_ON;
+    }
+}
+
 class Migration extends \Codeception\Extension
 {
 
@@ -26,6 +37,14 @@ class Migration extends \Codeception\Extension
      * @var \Codeception\Lib\Connector\Yii2
      */
     private $client;
+
+    /** @inheritdoc */
+    public function _initialize()
+    {
+        parent::_initialize();
+
+        stream_filter_register("block_stdout", block_stdout_filter::class);
+    }
 
     /**
      *  Event suite.before
@@ -91,7 +110,16 @@ class Migration extends \Codeception\Extension
 
         $migrateController = new MigrateController('migrate', $app);
         $migrateController->migrationPath = $migrationPath;
-        $migrateController->runAction($command, ['interactive' => 0]);
+        $migrateController->interactive = false;
+
+        $filter = stream_filter_prepend(STDOUT, "block_stdout");
+        ob_start();
+        ob_implicit_flush();
+
+        $migrateController->runAction($command);
+
+        ob_clean();
+        stream_filter_remove($filter);
 
         $this->destroyApplication();
     }
