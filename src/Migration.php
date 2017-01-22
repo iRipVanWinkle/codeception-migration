@@ -28,7 +28,6 @@ class Migration extends \Codeception\Extension
 
     /** @inheritdoc */
     protected $config = [
-        'cleanup' => true,
         'entryScript' => '',
         'entryUrl' => 'http://localhost/index-test.php',
     ];
