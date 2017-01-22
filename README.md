@@ -1,6 +1,6 @@
 # The migration extension for Codeception (Yii2)
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://raw.githubusercontent.com/iripvanwinkle/codeception-migration/master/LICENSE.md) [![Yii2](https://img.shields.io/badge/Powered_by-Yii_Framework-green.svg?style=flat-square)](http://www.yiiframework.com/)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://raw.githubusercontent.com/iripvanwinkle/codeception-migration/master/LICENSE.md) [![Yii2](https://img.shields.io/badge/Powered_by-Yii_Framework-green.svg?style=flat-square)](http://www.yiiframework.com/) [![Codeception](https://img.shields.io/badge/Powered_by-Codeception-orange.svg?style=flat-square)](http://codeception.com/)
 
 ## Install
 
