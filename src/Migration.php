@@ -158,7 +158,7 @@ class Migration extends \Codeception\Extension
         ];
         $this->client->defaultServerVars['HTTPS'] = parse_url($entryUrl, PHP_URL_SCHEME) === 'https';
         $this->client->restoreServerVars();
-        $this->client->configFile = $this->getRootDir() . $this->config['appConfig'];
+        $this->client->configFile = $this->getRootDir() . $this->config['configFile'];
 
         return $this->client->getApplication();
     }
