@@ -12,7 +12,8 @@ $ composer require iripvanwinkle/codeception-migration
 ## Config
 
  * `configFile` *required* - the path to the application config file. File should be configured for test environment and return configuration array.
- * `migrationPath` *required* - the path to your migrations folder. May use yii2 alias.
+ * `migrationPath` - the path to your migrations folder. May use yii2 alias.
+ * `migrationNamespaces` - list of namespaces containing the migration classes. May corresponds with the [autoloading conventions](https://github.com/yiisoft/yii2/blob/master/docs/guide/concept-autoloading.md) of Yii.
  * `entryUrl` - initial application url (default: http://localhost/index-test.php).
  * `entryScript` - front script title (like: index-test.php). If not set - taken from entryUrl.
  
