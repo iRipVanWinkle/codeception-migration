@@ -1,4 +1,5 @@
 <?php
+
 namespace Codeception\Extension;
 
 use Codeception\Exception\ExtensionException;
@@ -6,13 +7,15 @@ use Codeception\Lib\Connector\Yii2 as Yii2Connector;
 use yii\base\InvalidConfigException;
 use yii\console\controllers\MigrateController;
 
-class block_stdout_filter extends \php_user_filter {
+class block_stdout_filter extends \php_user_filter
+{
     function filter($in, $out, &$consumed, $closing)
     {
         while ($bucket = stream_bucket_make_writeable($in)) {
             $bucket->data = '';
             stream_bucket_append($out, $bucket);
         }
+
         return PSFS_PASS_ON;
     }
 }
@@ -21,15 +24,15 @@ class Migration extends \Codeception\Extension
 {
 
     /** @inheritdoc */
-    public static $events = array(
-        'suite.before' => 'beforeSuite',
-        'suite.after' => 'afterSuite'
-    );
+    public static $events = [
+      'suite.before' => 'beforeSuite',
+      'suite.after' => 'afterSuite'
+    ];
 
     /** @inheritdoc */
     protected $config = [
-        'entryScript' => '',
-        'entryUrl' => 'http://localhost/index-test.php',
+      'entryScript' => '',
+      'entryUrl' => 'http://localhost/index-test.php',
     ];
 
     /**
@@ -68,49 +71,102 @@ class Migration extends \Codeception\Extension
     protected function run($command)
     {
         if (array_key_exists('migrationPath', $this->config)) {
-            $migrationPath = $this->config['migrationPath'];
+            $migrationPaths = $this->config['migrationPath'];
 
-            if (is_string($migrationPath)) {
-                $migrationPath = [$migrationPath];
+            if (is_string($migrationPaths)) {
+                $migrationPaths = [$migrationPaths];
             }
 
-            array_walk($migrationPath, [$this, $command === 'up' ? 'runMigrationUp' : 'runMigrationDown']);
+            $this->runMigrationByPaths($migrationPaths, $command);
+        } elseif (array_key_exists('migrationNamespaces', $this->config)) {
+            $migrationNamespaces = $this->config['migrationNamespaces'];
+
+            if (is_string($migrationNamespaces)) {
+                $migrationNamespaces = [$migrationNamespaces];
+            }
+
+            $this->runMigrationByNamespaces($migrationNamespaces, $command);
         } else {
-            $defaultMigrationPath = '@src/migrations';
-            try {
-                $this->runMigration($defaultMigrationPath, $command);
-            } catch (ExtensionException $e) {
-                $this->writeln("Maybe, you forgot set migrationPath.");
+            throw new ExtensionException(
+              __CLASS__,
+              "At least one of `migrationPath` or `migrationNamespaces` should be specified."
+            );
+        }
+    }
+
+    /**
+     * Run migration by paths
+     * @param array $migrationPaths
+     * @param $command
+     * @throws ExtensionException
+     */
+    protected function runMigrationByPaths($migrationPaths, $command)
+    {
+        $app = $this->mockApplication();
+
+        $this->validateMigrationPaths($migrationPaths);
+
+        /* @todo: since version 2.0.12 you may also specify an array of migration paths. */
+        foreach ($migrationPaths as $migrationPath) {
+            $migrateController = $this->buildMigration($app);
+            $migrateController->migrationPath = $migrationPath;
+
+            $this->runMigration($migrateController, $command);
+        }
+
+        $this->destroyApplication();
+    }
+
+    /**
+     * Validate Migration Path
+     * @param string $migrationPath
+     * @throws ExtensionException
+     */
+    protected function validateMigrationPaths($migrationPaths)
+    {
+        foreach ($migrationPaths as $migrationPath) {
+            $path = \Yii::getAlias($migrationPath, false);
+            if ($path === false) {
+                throw new ExtensionException(
+                  __CLASS__,
+                  "Invalid path alias: $migrationPath"
+                );
+            }
+
+            if (!file_exists($path)) {
+                throw new ExtensionException(
+                  __CLASS__,
+                  "The migration path does not exist: " . realpath($this->getRootDir() . $path)
+                );
             }
         }
     }
 
     /**
-     * Run migrate
-     * @param string $migrationPath
+     * Run migration by namespaces
+     * @param array $migrationNamespaces
      * @param string $command either `up` or `down`
-     * @throws ExtensionException
      */
-    protected function runMigration($migrationPath, $command)
+    protected function runMigrationByNamespaces($migrationNamespaces, $command)
     {
         $app = $this->mockApplication();
 
-        $path = \Yii::getAlias($migrationPath, false);
-        if ($path === false) {
-            throw new ExtensionException(__CLASS__, "Invalid path alias: " . $migrationPath);
-        }
+        $migrateController = $this->buildMigration($app);
+        $migrateController->migrationNamespaces = $migrationNamespaces;
 
-        if (!file_exists($path)) {
-            throw new ExtensionException(
-                __CLASS__,
-                "The migration path does not exist: " . realpath($this->getRootDir() . $path)
-            );
-        }
+        $this->runMigration($migrateController, $command);
 
-        $migrateController = new MigrateController('migrate', $app);
-        $migrateController->migrationPath = $migrationPath;
-        $migrateController->interactive = false;
+        $this->destroyApplication();
+    }
 
+    /**
+     * Run migrate
+     * @param MigrateController $migrateController
+     * @param string $command either `up` or `down`
+     * @throws ExtensionException
+     */
+    protected function runMigration($migrateController, $command)
+    {
         $filter = stream_filter_prepend(STDOUT, "block_stdout");
         ob_start();
         ob_implicit_flush();
@@ -119,24 +175,19 @@ class Migration extends \Codeception\Extension
 
         ob_clean();
         stream_filter_remove($filter);
-
-        $this->destroyApplication();
     }
 
     /**
-     * Run migration up
-     * @param string $migrationPath
+     * Ceate Migrate Controller
+     * @param \yii\web\Application|\yii\console\Application $app the application instance
+     * @return MigrateController
      */
-    public function runMigrationUp($migrationPath){
-        $this->runMigration($migrationPath, 'up');
-    }
+    protected function buildMigration($app)
+    {
+        $migrateController = new MigrateController('migrate', $app);
+        $migrateController->interactive = false;
 
-    /**
-     * Run migration up
-     * @param string $migrationPath
-     */
-    public function runMigrationDown($migrationPath){
-        $this->runMigration($migrationPath, 'down');
+        return $migrateController;
     }
 
     /**
@@ -151,10 +202,10 @@ class Migration extends \Codeception\Extension
         $entryScript = $this->config['entryScript'] ?: parse_url($entryUrl, PHP_URL_PATH);
         $this->client = new Yii2Connector();
         $this->client->defaultServerVars = [
-            'SCRIPT_FILENAME' => $entryFile,
-            'SCRIPT_NAME' => $entryScript,
-            'SERVER_NAME' => parse_url($entryUrl, PHP_URL_HOST),
-            'SERVER_PORT' => parse_url($entryUrl, PHP_URL_PORT) ?: '80',
+          'SCRIPT_FILENAME' => $entryFile,
+          'SCRIPT_NAME' => $entryScript,
+          'SERVER_NAME' => parse_url($entryUrl, PHP_URL_HOST),
+          'SERVER_PORT' => parse_url($entryUrl, PHP_URL_PORT) ?: '80',
         ];
         $this->client->defaultServerVars['HTTPS'] = parse_url($entryUrl, PHP_URL_SCHEME) === 'https';
         $this->client->restoreServerVars();
