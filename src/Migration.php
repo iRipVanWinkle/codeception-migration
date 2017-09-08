@@ -87,10 +87,7 @@ class Migration extends \Codeception\Extension
 
             $this->runMigrationByNamespaces($migrationNamespaces, $command);
         } else {
-            throw new ExtensionException(
-              __CLASS__,
-              "At least one of `migrationPath` or `migrationNamespaces` should be specified."
-            );
+            $this->runMigrationByApplication($command);
         }
     }
 
@@ -153,6 +150,33 @@ class Migration extends \Codeception\Extension
 
         $migrateController = $this->buildMigration($app);
         $migrateController->migrationNamespaces = $migrationNamespaces;
+
+        $this->runMigration($migrateController, $command);
+
+        $this->destroyApplication();
+    }
+
+    /**
+     * Run migration from app config
+     * @param string $command either `up` or `down`
+     */
+    protected function runMigrationByApplication($command)
+    {
+        $app = $this->mockApplication();
+
+        list($migrateController, $route) = $app->createController('migrate');
+
+        if ($migrateController === null) {
+            throw new ExtensionException(
+              __CLASS__,
+              "At least one of `migrationPath` or `migrationNamespaces` should be specified.\nOr describe migrations in your app config."
+            );
+        }
+
+        if ($migrateController->interactive) {
+            $this->writeln('Cannot run the migrate interactively, the interaction was disabled.');
+            $migrateController->interactive = false;
+        }
 
         $this->runMigration($migrateController, $command);
 
